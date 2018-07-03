@@ -16,6 +16,3 @@ sed -i -e 's/database = postgres/database = cassandra/g' spec/kong_tests_cassand
 bin/kong migrations up
 bin/kong migrations up -c spec/kong_tests.conf
 bin/kong migrations up -c spec/kong_tests_cassandra.conf
-
-# Plugin tests can now be run
-echo "Run plugin tests from /kong with:  bin/busted /kong-plugin/spec -v -o gtest"
