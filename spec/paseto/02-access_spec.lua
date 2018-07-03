@@ -9,6 +9,7 @@ for _, strategy in helpers.each_strategy() do
   describe("Plugin: paseto (access) [#" .. strategy .. "]", function()
     local proxy_client
     local secret_key, public_key
+    local secret_key_3
 
     setup(function()
       local bp, _, dao = helpers.get_db_utils(strategy)
@@ -21,20 +22,28 @@ for _, strategy in helpers.each_strategy() do
         }
       end
 
-      --consumers
       local consumers = bp.consumers
-      local consumer1 = consumers:insert({ username = "paseto_tests_consumer" })
+      local consumer1 = consumers:insert({ username = "paseto_tests_consumer_1" })
+      local consumer2 = consumers:insert({ username = "paseto_tests_consumer_2" })
+      local consumer3 = consumers:insert({ username = "paseto_tests_consumer_3" })
 
       secret_key, public_key = paseto.generate_asymmetric_secret_key()
-      local _, public_key_1 = paseto.generate_asymmetric_secret_key()
+      local _, public_key_2 = paseto.generate_asymmetric_secret_key()
+      secret_key_3, _ = paseto.generate_asymmetric_secret_key()
 
-      assert(dao:run_migrations())
+      --assert(dao:run_migrations())
       --assert(helpers.kong_exec("migrations up -c spec/kong_tests.conf", {}))
 
-      local paseto_key_1 = dao.paseto_keys:insert {
+      local paseto_key_2 = dao.paseto_keys:insert {
         consumer_id = consumer1.id,
         kid = "signature_verification_fail",
-        public_key = encode_base64(public_key_1)
+        public_key = encode_base64(public_key_2)
+      }
+
+      local paseto_key_3 = dao.paseto_keys:insert {
+        consumer_id = consumer3.id,
+        kid = "signature_verification_success",
+        secret_key = encode_base64(secret_key_3)
       }
 
 
@@ -89,7 +98,7 @@ for _, strategy in helpers.each_strategy() do
         local payload_claims
         payload_claims = {}
         payload_claims["clientid"] = 100099
-        payload_claims["message"] = "secret"
+        payload_claims["myclaim"] = "value"
 
         local token = "v2.public"
         local authorization = "Bearer " .. token
@@ -113,7 +122,7 @@ for _, strategy in helpers.each_strategy() do
         local payload_claims, footer_claims
         payload_claims = {}
         payload_claims["clientid"] = 100099
-        payload_claims["message"] = "secret"
+        payload_claims["myclaim"] = "value"
         footer_claims = { no_kid_claim = "1234" }
 
         local token = paseto.sign(secret_key, payload_claims, footer_claims)
@@ -135,7 +144,7 @@ for _, strategy in helpers.each_strategy() do
         local payload_claims, footer_claims
         payload_claims = {}
         payload_claims["clientid"] = 100099
-        payload_claims["message"] = "secret"
+        payload_claims["myclaim"] = "value"
         footer_claims = { kid = "1234" }
 
         local token = paseto.sign(secret_key, payload_claims, footer_claims)
@@ -157,7 +166,7 @@ for _, strategy in helpers.each_strategy() do
         local payload_claims, footer_claims
         payload_claims = {}
         payload_claims["clientid"] = 100099
-        payload_claims["message"] = "secret"
+        payload_claims["myclaim"] = "value"
         footer_claims = { kid = "signature_verification_fail" }
 
         local token = paseto.sign(secret_key, payload_claims, footer_claims)
@@ -177,8 +186,35 @@ for _, strategy in helpers.each_strategy() do
 
 
 
+    end)
+
+    describe("success cases", function()
+
+      it("returns 200 on successful authentication", function()
+        local payload_claims, footer_claims
+        payload_claims = {}
+        payload_claims["clientid"] = 100099
+        payload_claims["myclaim"] = "value"
+        footer_claims = { kid = "signature_verification_success" }
+
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"]          = "paseto1.com",
+          }
+        })
+        local body = assert.res_status(200, res)
+      end)
 
     end)
+
+
+
+
 
   end)
 

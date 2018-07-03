@@ -1,15 +1,17 @@
 local singletons = require "kong.singletons"
 local responses = require "kong.tools.responses"
+local constants = require "kong.constants"
 local paseto = require "paseto.v2"
 
 local ngx_re_gmatch  = ngx.re.gmatch
+local ngx_set_header = ngx.req.set_header
 local get_method = ngx.req.get_method
 local encode_base64 = ngx.encode_base64
 local decode_base64 = ngx.decode_base64
 
 local plugin = require("kong.plugins.base_plugin"):extend()
 
-plugin.PRIORITY = 1005
+plugin.PRIORITY = 1006
 plugin.VERSION = "0.1.0"
 
 function plugin:new()
@@ -56,6 +58,31 @@ local function retrieve_token(request, conf)
     if m and #m > 0 then
       return m[1]
     end
+  end
+end
+
+local function load_consumer(consumer_id, anonymous)
+  local result, err = singletons.dao.consumers:find { id = consumer_id }
+  if not result then
+    if anonymous and not err then
+      err = 'anonymous consumer "' .. consumer_id .. '" not found'
+    end
+    return nil, err
+  end
+  return result
+end
+
+local function set_consumer(consumer, paseto_key, token)
+  ngx_set_header(constants.HEADERS.CONSUMER_ID, consumer.id)
+  ngx_set_header(constants.HEADERS.CONSUMER_CUSTOM_ID, consumer.custom_id)
+  ngx_set_header(constants.HEADERS.CONSUMER_USERNAME, consumer.username)
+  ngx.ctx.authenticated_consumer = consumer
+  if paseto_key then
+    ngx.ctx.authenticated_credential = paseto_key
+    ngx.ctx.authenticated_jwt_token = token
+    ngx_set_header(constants.HEADERS.ANONYMOUS, nil) -- in case of auth plugins concatenation
+  else
+    ngx_set_header(constants.HEADERS.ANONYMOUS, true)
   end
 end
 
