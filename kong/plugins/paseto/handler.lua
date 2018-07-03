@@ -3,10 +3,10 @@ local responses = require "kong.tools.responses"
 local constants = require "kong.constants"
 local paseto = require "paseto.v2"
 
+local string_format  = string.format
 local ngx_re_gmatch  = ngx.re.gmatch
 local ngx_set_header = ngx.req.set_header
 local get_method = ngx.req.get_method
-local encode_base64 = ngx.encode_base64
 local decode_base64 = ngx.decode_base64
 
 local plugin = require("kong.plugins.base_plugin"):extend()

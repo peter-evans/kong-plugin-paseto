@@ -1,21 +1,15 @@
 local helpers  = require "spec.helpers"
 local cjson    = require "cjson"
 local fixtures = require "spec.paseto.fixtures"
-local utils    = require "kong.tools.utils"
+--local utils    = require "kong.tools.utils"
 
 for _, strategy in helpers.each_strategy() do
   describe("Plugin: paseto (API) [#" .. strategy .. "]", function()
     local admin_client
-    local consumer
-    local paseto_secret
     local bp
-    local dao
 
     setup(function()
-      local _
-      bp, _, dao = helpers.get_db_utils(strategy)
-
-      --assert(helpers.dao:run_migrations())
+      bp = helpers.get_db_utils(strategy)
 
       assert(helpers.start_kong {
         database = strategy,
@@ -36,6 +30,8 @@ for _, strategy in helpers.each_strategy() do
 
     describe("/consumers/:consumer/paseto/", function()
 
+    local consumer
+
       setup(function()
         consumer = bp.consumers:insert {
           username = "bob"
@@ -46,17 +42,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       describe("POST", function()
-        local paseto1, paseto2
-
-        teardown(function()
-          dao:truncate_tables()
-          --dao:truncate_table("paseto_secrets")
-
-          --if paseto1 == nil then return end
-          --dao.paseto_secrets:delete(paseto1)
-          --if paseto2 == nil then return end
-          --dao.paseto_secrets:delete(paseto2)
-        end)
 
         it("creates a paseto key pair", function()
           local res = assert(admin_client:send {

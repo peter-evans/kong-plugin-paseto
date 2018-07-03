@@ -1,5 +1,3 @@
-local plugin_config_iterator = require("kong.dao.migrations.helpers").plugin_config_iterator
-
 return {
   {
     name = "2018-06-25-paseto-auth",
