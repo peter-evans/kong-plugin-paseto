@@ -187,7 +187,7 @@ for _, strategy in helpers.each_strategy() do
         })
         local body = assert.res_status(403, res)
         local json_body = json.decode(body)
-        assert.same({ message = "Invalid signature" }, json_body)
+        assert.same({ message = "Invalid signature for this message" }, json_body)
       end)
 
 

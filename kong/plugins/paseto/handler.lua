@@ -132,13 +132,10 @@ local function do_authentication(conf)
     return false, {status = 403, message = "Invalid public key"}
   end
 
-  -- Set the claim rules
-  --local claim_rules = build_claim_rules(conf.claims_to_verify)
-
-  -- Verify the token signature
-  local verified_claims = paseto.verify(public_key, token, {}, footer)
+  -- Verify the token signature and claims
+  local verified_claims, err = paseto.verify(public_key, token, conf.claims_to_verify, footer)
   if not verified_claims then
-    return false, {status = 403, message = "Invalid signature"}
+    return false, {status = 403, message = err}
   end
 
   -- Retrieve the consumer
