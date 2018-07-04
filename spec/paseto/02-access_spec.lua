@@ -51,6 +51,23 @@ for _, strategy in helpers.each_strategy() do
 
       plugins:insert({
         name     = "paseto",
+        route_id = routes[2].id,
+        config   = {
+          claims_to_verify = {
+            claim_1 = { claim = "IssuedBy", value = "paragonie.com" },
+            claim_2 = { claim = "IdentifiedBy", value = "87IFSGFgPNtQNNuw0AtuLttP" },
+            claim_3 = { claim = "ForAudience", value = "some-audience.com" },
+            claim_4 = { claim = "Subject", value = "test" },
+            claim_5 = { claim = "NotExpired", value = "true" },
+            claim_6 = { claim = "ValidAt", value = "true" },            
+            claim_7 = { claim = "ContainsClaim", value = "data" },
+            claim_8 = { claim = "myclaim", value = "required value" },
+          }
+        },
+      })
+
+      plugins:insert({
+        name     = "paseto",
         route_id = routes[10].id,
         config   = { cookie_names = { "choco", "berry" } },
       })
@@ -178,14 +195,24 @@ for _, strategy in helpers.each_strategy() do
     end)
 
     describe("success cases", function()
+      local payload_claims, footer_claims
+
+      setup(function()
+        payload_claims = {
+          iss = "paragonie.com",
+          jti = "87IFSGFgPNtQNNuw0AtuLttP",
+          aud = "some-audience.com",
+          sub = "test",
+          iat = "2018-01-01T00:00:00+00:00",
+          nbf = "2018-01-01T00:00:00+00:00",
+          exp = "2099-01-01T00:00:00+00:00",
+          data = "this is a signed message",
+          myclaim = "required value"
+        }
+        footer_claims = { kid = "signature_verification_success" }
+      end)
 
       it("returns 200 on successful authentication", function()
-        local payload_claims, footer_claims
-        payload_claims = {}
-        payload_claims["clientid"] = 100099
-        payload_claims["myclaim"] = "value"
-        footer_claims = { kid = "signature_verification_success" }
-
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -194,6 +221,20 @@ for _, strategy in helpers.each_strategy() do
           headers = {
             ["Authorization"] = authorization,
             ["Host"]          = "paseto1.com",
+          }
+        })
+        assert.res_status(200, res)
+      end)
+
+      it("returns 200 on successful authentication with claims validation", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"]          = "paseto2.com",
           }
         })
         assert.res_status(200, res)

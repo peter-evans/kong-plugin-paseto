@@ -132,14 +132,14 @@ local function do_authentication(conf)
     return false, {status = 403, message = "Invalid public key"}
   end
 
+  -- Set the claim rules
+  --local claim_rules = build_claim_rules(conf.claims_to_verify)
+
   -- Verify the token signature
-  local verified_claims = paseto.verify(public_key, token, nil, footer)
+  local verified_claims = paseto.verify(public_key, token, {}, footer)
   if not verified_claims then
     return false, {status = 403, message = "Invalid signature"}
   end
-
-  -- Verify claims
-
 
   -- Retrieve the consumer
   local consumer_cache_key = singletons.dao.consumers:cache_key(paseto_key.consumer_id)
