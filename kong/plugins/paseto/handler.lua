@@ -140,9 +140,7 @@ local function do_authentication(conf)
 
   -- Retrieve the consumer
   local consumer_cache_key = singletons.dao.consumers:cache_key(paseto_key.consumer_id)
-  local consumer, err      = singletons.cache:get(consumer_cache_key, nil,
-                                                  load_consumer,
-                                                  paseto_key.consumer_id, true)
+  local consumer, err      = singletons.cache:get(consumer_cache_key, nil, load_consumer, paseto_key.consumer_id, true)
   if err then
     return responses.send_HTTP_INTERNAL_SERVER_ERROR(err)
   end

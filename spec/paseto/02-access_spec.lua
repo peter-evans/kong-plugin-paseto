@@ -72,9 +72,6 @@ for _, strategy in helpers.each_strategy() do
         config   = { cookie_names = { "choco", "berry" } },
       })
 
-      --assert(helpers.dao:run_migrations())
-      --assert(helpers.kong_exec("migrations up -c spec/kong_tests.conf", {}))
-
       assert(helpers.start_kong {
         database = strategy,
         nginx_conf = "spec/fixtures/custom_nginx.template",
@@ -93,6 +90,22 @@ for _, strategy in helpers.each_strategy() do
     end)
 
     describe("refusals", function()
+
+      local payload_claims
+
+      setup(function()
+        payload_claims = {
+          iss = "paragonie.com",
+          jti = "87IFSGFgPNtQNNuw0AtuLttP",
+          aud = "some-audience.com",
+          sub = "test",
+          iat = "2018-01-01T00:00:00+00:00",
+          nbf = "2018-01-01T00:00:00+00:00",
+          exp = "2099-01-01T00:00:00+00:00",
+          data = "this is a signed message",
+          myclaim = "required value"
+        }
+      end)
 
       it("returns 401 Unauthorized if no PASETO is found in the request", function()
         local res = assert(proxy_client:send {
@@ -123,14 +136,8 @@ for _, strategy in helpers.each_strategy() do
 
       -- TODO: add more tests for token parsing
 
-
       it("returns 401 if the token footer does not contain a kid claim", function()
-        local payload_claims, footer_claims
-        payload_claims = {}
-        payload_claims["clientid"] = 100099
-        payload_claims["myclaim"] = "value"
-        footer_claims = { no_kid_claim = "1234" }
-
+        local footer_claims = { no_kid_claim = "1234" }
         local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -147,12 +154,7 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 if no keys with a kid matching the claim are found", function()
-        local payload_claims, footer_claims
-        payload_claims = {}
-        payload_claims["clientid"] = 100099
-        payload_claims["myclaim"] = "value"
-        footer_claims = { kid = "1234" }
-
+        local footer_claims = { kid = "1234" }
         local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -169,12 +171,7 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 when signature verification fails", function()
-        local payload_claims, footer_claims
-        payload_claims = {}
-        payload_claims["clientid"] = 100099
-        payload_claims["myclaim"] = "value"
-        footer_claims = { kid = "signature_verification_fail" }
-
+        local footer_claims = { kid = "signature_verification_fail" }
         local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -190,11 +187,38 @@ for _, strategy in helpers.each_strategy() do
         assert.same({ message = "Invalid signature for this message" }, json_body)
       end)
 
-
+      it("returns 403 when claims verification fails", function()
+        local footer_claims = { kid = "signature_verification_success" }
+        local invalid_payload_claims = {
+          iss = "paragonie.com",
+          jti = "87IFSGFgPNtQNNuw0AtuLttP",
+          aud = "some-audience.com",
+          sub = "test",
+          iat = "2018-01-01T00:00:00+00:00",
+          nbf = "2018-01-01T00:00:00+00:00",
+          exp = "2099-01-01T00:00:00+00:00",
+          data = "this is a signed message",
+          myclaim = "invalid"
+        }
+        local token = paseto.sign(secret_key_3, invalid_payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"]          = "paseto2.com",
+          }
+        })
+        local body = assert.res_status(403, res)
+        local json_body = json.decode(body)
+        assert.same({ message = "Claim 'myclaim' does not match the expected value" }, json_body)
+      end)
 
     end)
 
     describe("success cases", function()
+
       local payload_claims, footer_claims
 
       setup(function()
@@ -241,10 +265,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
     end)
-
-
-
-
 
   end)
 
