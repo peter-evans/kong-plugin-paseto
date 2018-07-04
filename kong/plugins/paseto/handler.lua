@@ -133,7 +133,7 @@ local function do_authentication(conf)
   end
 
   -- Verify the token signature
-  local verified_claims = paseto.verify(public_key, token, footer)
+  local verified_claims = paseto.verify(public_key, token, nil, footer)
   if not verified_claims then
     return false, {status = 403, message = "Invalid signature"}
   end
