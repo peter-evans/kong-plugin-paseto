@@ -174,9 +174,7 @@ function plugin:access(conf)
     if conf.anonymous ~= "" then
       -- get anonymous user
       local consumer_cache_key = singletons.dao.consumers:cache_key(conf.anonymous)
-      local consumer, err      = singletons.cache:get(consumer_cache_key, nil,
-                                                      load_consumer,
-                                                      conf.anonymous, true)
+      local consumer, err      = singletons.cache:get(consumer_cache_key, nil, load_consumer, conf.anonymous, true)
       if err then
         return responses.send_HTTP_INTERNAL_SERVER_ERROR(err)
       end

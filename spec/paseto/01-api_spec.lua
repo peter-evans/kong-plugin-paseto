@@ -1,5 +1,5 @@
-local helpers  = require "spec.helpers"
-local cjson    = require "cjson"
+local helpers = require "spec.helpers"
+local cjson = require "cjson"
 local fixtures = require "spec.paseto.fixtures"
 --local utils    = require "kong.tools.utils"
 
