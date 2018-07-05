@@ -19,7 +19,7 @@ return {
         flexible = true,
         fields = {
           claim = { type = "string" },
-          value = { type = "string" }
+          value = { type = "string" },
         }
       }
     },

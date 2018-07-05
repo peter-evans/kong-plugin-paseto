@@ -25,29 +25,29 @@ local SCHEMA = {
         plugin_t.secret_key = encode_base64(secret_key)
         plugin_t.public_key = encode_base64(public_key)
         if plugin_t.public_key == nil then
-          return false, Errors.schema "'public_key' format is invalid"
+          return false, Errors.schema "public_key format is invalid"
         end
       else
         -- If a secret key is supplied the last 32 bytes is assumed to be the public key
         local decoded_secret_key = decode_base64(plugin_t.secret_key)
         if #decoded_secret_key ~= 64 then
-          return false, Errors.schema "'secret_key' must be a base64 encoded 64 byte string"
+          return false, Errors.schema "secret_key must be a base64 encoded 64 byte string"
         end
         plugin_t.public_key = encode_base64(string.sub(decoded_secret_key, 33, 64))
       end
     else
       local decoded_public_key = decode_base64(plugin_t.public_key)
       if #decoded_public_key ~= 32 then
-        return false, Errors.schema "'public_key' must be a base64 encoded 32 byte string"
+        return false, Errors.schema "public_key must be a base64 encoded 32 byte string"
       end
       -- If a key pair is supplied they must match
       if plugin_t.secret_key ~= nil then
         local decoded_secret_key = decode_base64(plugin_t.secret_key)
         if #decoded_secret_key ~= 64 then
-          return false, Errors.schema "'secret_key' must be a base64 encoded 64 byte string"
+          return false, Errors.schema "secret_key must be a base64 encoded 64 byte string"
         end
         if string.sub(decoded_secret_key, 33, 64) ~= decoded_public_key then
-          return false, Errors.schema "'secret_key' and 'public_key' must be a matching key pair"
+          return false, Errors.schema "secret_key and public_key must be a matching key pair"
         end    
       end
     end
