@@ -106,7 +106,7 @@ local function do_authentication(conf)
   -- Extract the footer claims
   local footer_claims, footer, err = paseto.extract_footer_claims(token)
   if footer_claims == nil then
-    return false, {status = 401, message = err}
+    return false, {status = 401, message = "Bad token; " .. err}
   end
 
   -- Retrieve the kid
@@ -123,7 +123,7 @@ local function do_authentication(conf)
   end
 
   if not paseto_key then
-    return false, {status = 403, message = "No keys found for given '" .. conf.kid_claim_name .. "'"}
+    return false, {status = 403, message = "No key found for given '" .. conf.kid_claim_name .. "'"}
   end
 
   -- Retrieve public key
@@ -135,7 +135,7 @@ local function do_authentication(conf)
   -- Verify the token signature and claims
   local verified_claims, err = paseto.verify(public_key, token, conf.claims_to_verify, footer)
   if not verified_claims then
-    return false, {status = 403, message = err}
+    return false, {status = 403, message = "Token verification failed; " .. err}
   end
 
   -- Retrieve the consumer

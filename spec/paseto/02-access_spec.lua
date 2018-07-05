@@ -68,7 +68,13 @@ for _, strategy in helpers.each_strategy() do
 
       plugins:insert({
         name     = "paseto",
-        route_id = routes[10].id,
+        route_id = routes[3].id,
+        config   = { run_on_preflight = false },
+      })
+
+      plugins:insert({
+        name     = "paseto",
+        route_id = routes[4].id,
         config   = { cookie_names = { "choco", "berry" } },
       })
 
@@ -115,7 +121,8 @@ for _, strategy in helpers.each_strategy() do
             ["Host"] = "paseto1.com",
           }
         })
-        assert.res_status(401, res)
+        local json_body = json.decode(assert.res_status(401, res))
+        assert.same({ message = "Unauthorized" }, json_body)
       end)
 
       it("returns 401 if the token is not in a valid PASETO format", function()
@@ -131,10 +138,8 @@ for _, strategy in helpers.each_strategy() do
         })
         local body = assert.res_status(401, res)
         local json_body = json.decode(body)
-        assert.same({ message = "Invalid token format" }, json_body)
+        assert.same({ message = "Bad token; Invalid token format" }, json_body)
       end)
-
-      -- TODO: add more tests for token parsing
 
       it("returns 401 if the token footer does not contain a kid claim", function()
         local footer_claims = { no_kid_claim = "1234" }
@@ -153,7 +158,7 @@ for _, strategy in helpers.each_strategy() do
         assert.same({ message = "No mandatory 'kid' in claims" }, json_body)
       end)
 
-      it("returns 403 if no keys with a kid matching the claim are found", function()
+      it("returns 403 if no key with a kid matching the claim is found", function()
         local footer_claims = { kid = "1234" }
         local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
@@ -167,7 +172,7 @@ for _, strategy in helpers.each_strategy() do
         })
         local body = assert.res_status(403, res)
         local json_body = json.decode(body)
-        assert.same({ message = "No keys found for given 'kid'" }, json_body)
+        assert.same({ message = "No key found for given 'kid'" }, json_body)
       end)
 
       it("returns 403 when signature verification fails", function()
@@ -184,10 +189,38 @@ for _, strategy in helpers.each_strategy() do
         })
         local body = assert.res_status(403, res)
         local json_body = json.decode(body)
-        assert.same({ message = "Invalid signature for this message" }, json_body)
+        assert.same({ message = "Token verification failed; Invalid signature for this message" }, json_body)
       end)
 
-      it("returns 403 when claims verification fails", function()
+      it("returns 403 when registered claims verification fails", function()
+        local footer_claims = { kid = "signature_verification_success" }
+        local invalid_payload_claims = {
+          iss = "paragonie.com",
+          jti = "87IFSGFgPNtQNNuw0AtuLttP",
+          aud = "some-audience.com",
+          sub = "test",
+          iat = "2018-01-01T00:00:00+00:00",
+          nbf = "2018-01-01T00:00:00+00:00",
+          exp = "2018-02-01T00:00:00+00:00",
+          data = "this is a signed message",
+          myclaim = "required value"
+        }
+        local token = paseto.sign(secret_key_3, invalid_payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"]          = "paseto2.com",
+          }
+        })
+        local body = assert.res_status(403, res)
+        local json_body = json.decode(body)
+        assert.same({ message = "Token verification failed; Token has expired" }, json_body)
+      end)
+
+      it("returns 403 when custom claims verification fails", function()
         local footer_claims = { kid = "signature_verification_success" }
         local invalid_payload_claims = {
           iss = "paragonie.com",
@@ -212,7 +245,52 @@ for _, strategy in helpers.each_strategy() do
         })
         local body = assert.res_status(403, res)
         local json_body = json.decode(body)
-        assert.same({ message = "Claim 'myclaim' does not match the expected value" }, json_body)
+        assert.same({ message = "Token verification failed; Claim 'myclaim' does not match the expected value" }, json_body)
+      end)
+
+      it("returns 401 when the token is not found in the cookie 'banana'", function()
+        local footer_claims = { kid = "signature_verification_success" }
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto4.com",
+            ["Cookie"] = "banana=" .. token .. "; path=/;domain=.paseto4.com",
+          }
+        })
+        local json_body = json.decode(assert.res_status(401, res))
+        assert.same({ message = "Unauthorized" }, json_body)
+      end)
+
+      it("returns 403 when the token in cookies is malformed", function()
+        local footer_claims = { kid = "signature_verification_success" }
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto4.com",
+            ["Cookie"] = "berry=" .. "invalid" .. token .. "; path=/;domain=.paseto4.com",
+          }
+        })
+        local json_body = json.decode(assert.res_status(403, res))
+        assert.same({ message = "Token verification failed; Invalid message header" }, json_body)
+      end)
+
+
+
+
+      it("returns Unauthorized on OPTIONS requests if run_on_preflight is true", function()
+        local res = assert(proxy_client:send {
+          method  = "OPTIONS",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto1.com"
+          }
+        })
+        local json_body = json.decode(assert.res_status(401, res))
+        assert.same({ message = "Unauthorized" }, json_body)
       end)
 
     end)
@@ -236,7 +314,7 @@ for _, strategy in helpers.each_strategy() do
         footer_claims = { kid = "signature_verification_success" }
       end)
 
-      it("returns 200 on successful authentication", function()
+      it("proxies the request on token verification", function()
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -247,10 +325,13 @@ for _, strategy in helpers.each_strategy() do
             ["Host"]          = "paseto1.com",
           }
         })
-        assert.res_status(200, res)
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal(authorization, body.headers.authorization)
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
       end)
 
-      it("returns 200 on successful authentication with claims validation", function()
+      it("proxies the request on token and claims verification", function()
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -259,6 +340,54 @@ for _, strategy in helpers.each_strategy() do
           headers = {
             ["Authorization"] = authorization,
             ["Host"]          = "paseto2.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal(authorization, body.headers.authorization)
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
+
+      it("proxies the request when the token is found in the cookie 'choco'", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto4.com",
+            ["Cookie"] = "choco=" .. token .. "; path=/;domain=.paseto4.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
+
+      it("proxies the request when the token is found in the cookie 'berry'", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto4.com",
+            ["Cookie"] = "berry=" .. token .. "; path=/;domain=.paseto4.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
+
+
+
+
+
+      it("returns 200 on OPTIONS requests if run_on_preflight is false", function()
+        local res = assert(proxy_client:send {
+          method  = "OPTIONS",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto3.com"
           }
         })
         assert.res_status(200, res)
