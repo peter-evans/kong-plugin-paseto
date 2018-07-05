@@ -88,7 +88,7 @@ Here's a list of all the parameters which can be used in this plugin's configura
 | `api_id` |  |  | The id of the API which this plugin will target. Note: The API Entity is deprecated since Kong 0.13.0. |
 | `config.uri_param_names` | optional | `paseto` | A list of querystring parameters that the plugin will inspect to retrieve PASETOs. |
 | `config.cookie_names` | optional |  | A list of cookie names that the plugin will inspect to retrieve PASETOs. |
-| `config.claims_to_verify.{claim_name}` | optional |  | This is a list of custom objects that you can set, with arbitrary names set in the `{claim_name}` placeholder, like `config.claims_to_verify.claim_1.claim=sub` if your object is called "claim_1". |
+| `config.claims_to_verify.{claim_name}` | optional |  | This is a list of custom objects that you can set, with arbitrary names set in the `{claim_name}` placeholder, like `config.claims_to_verify.claim_1.claim=ForAudience` if your object is called "claim_1". |
 | `config.claims_to_verify.{claim_name}.claim` |  |  | The claim rule or name of your custom claim. See below for a description of the claim rules. |
 | `config.claims_to_verify.{claim_name}.value` |  |  | The value to verify against. |
 | `config.kid_claim_name` | optional | `kid` | The name of the claim in which the `kid` identifying the PASETO key pair **must** be passed. The plugin will attempt to read this claim from the PASETO footer. |
