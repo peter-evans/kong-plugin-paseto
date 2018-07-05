@@ -107,7 +107,7 @@ Here's a list of all the parameters which can be used in this plugin's configura
    * The current time is greater than or equal to the DateTime stored in the `iat` claim.
    * The current time is greater than or equal to the DateTime stored in the `nbf` claim.
 * `ContainsClaim` which verifies that the payload contains a claim with the specified name.
-* `{custom_claim}` which verifies that the payload contains a claim with the name set in the {claim_name} placeholder and with an expected value.
+* `{custom_claim}` which verifies that the payload contains a claim with the name set in the `{claim_name}` placeholder and with an expected value.
 
 ## Documentation
 
