@@ -11,7 +11,7 @@ source = {
   tag = "0.1.0"
 }
 dependencies = {
-  "paseto >= 0.1.0"
+  "paseto >= 0.4.0"
 }
 supported_platforms = {
   "linux", 
