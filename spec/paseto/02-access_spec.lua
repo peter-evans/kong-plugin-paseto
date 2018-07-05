@@ -120,7 +120,7 @@ for _, strategy in helpers.each_strategy() do
       assert(helpers.start_kong {
         database = strategy,
         nginx_conf = "spec/fixtures/custom_nginx.template",
-        custom_plugins = "paseto, ctx-checker",      
+        custom_plugins = "paseto, ctx-checker",
       })
 
       proxy_client = helpers.proxy_client()
@@ -503,6 +503,239 @@ for _, strategy in helpers.each_strategy() do
 
   end)
 
-   -- TODO: add multiple auth tests
-  
+  describe("Plugin: paseto (access) [#" .. strategy .. "]", function()
+
+    local client
+    local user1
+    local user2
+    local anonymous
+    local paseto_token
+    local payload_claims, footer_claims
+
+    setup(function()
+      local bp, _, dao = helpers.get_db_utils(strategy)
+
+      local service1 = bp.services:insert({
+        path = "/request"
+      })
+
+      local route1 = bp.routes:insert {
+        hosts     = { "logical-and.com" },
+        service   = service1,
+      }
+
+      bp.plugins:insert {
+        name     = "paseto",
+        route_id = route1.id,
+      }
+
+      bp.plugins:insert {
+        name     = "key-auth",
+        route_id = route1.id,
+      }
+
+      anonymous = bp.consumers:insert {
+        username = "Anonymous",
+      }
+
+      user1 = bp.consumers:insert {
+        username = "Mickey",
+      }
+
+      user2 = bp.consumers:insert {
+        username = "Aladdin",
+      }
+
+      local service2 = bp.services:insert({
+        path = "/request"
+      })
+
+      local route2 = bp.routes:insert {
+        hosts     = { "logical-or.com" },
+        service   = service2,
+      }
+
+      bp.plugins:insert {
+        name     = "paseto",
+        route_id = route2.id,
+        config   = {
+          anonymous = anonymous.id,
+        },
+      }
+
+      bp.plugins:insert {
+        name     = "key-auth",
+        route_id = route2.id,
+        config   = {
+          anonymous = anonymous.id,
+        },
+      }
+
+      bp.keyauth_credentials:insert {
+        key         = "Mouse",
+        consumer_id = user1.id,
+      }
+
+      local secret_key = paseto.generate_asymmetric_secret_key()
+      dao.paseto_keys:insert {
+        consumer_id = user2.id,
+        kid = "123456789",
+        secret_key = encode_base64(secret_key)
+      }
+
+      payload_claims = {
+        iss = "paragonie.com",
+        jti = "87IFSGFgPNtQNNuw0AtuLttP",
+        aud = "some-audience.com",
+        sub = "test",
+        iat = "2018-01-01T00:00:00+00:00",
+        nbf = "2018-01-01T00:00:00+00:00",
+        exp = "2099-01-01T00:00:00+00:00",
+        data = "this is a signed message",
+        myclaim = "required value"
+      }
+      footer_claims = { kid = "123456789" }
+
+      paseto_token   = "Bearer " .. paseto.sign(secret_key, payload_claims, footer_claims)
+
+      assert(helpers.start_kong({
+        database   = strategy,
+        nginx_conf = "spec/fixtures/custom_nginx.template",
+        custom_plugins = "paseto",
+      }))
+
+      client = helpers.proxy_client()
+    end)
+
+    teardown(function()
+      if client then
+        client:close()
+      end
+      helpers.stop_kong()
+    end)
+
+    describe("multiple auth without anonymous, logical AND", function()
+
+      it("passes with all credentials provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"]          = "logical-and.com",
+            ["apikey"]        = "Mouse",
+            ["Authorization"] = paseto_token,
+          }
+        })
+        assert.response(res).has.status(200)
+        assert.request(res).has.no.header("x-anonymous-consumer")
+        local id = assert.request(res).has.header("x-consumer-id")
+        assert.not_equal(id, anonymous.id)
+        assert(id == user1.id or id == user2.id)
+      end)
+
+      it("fails 401, with only the first credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"]   = "logical-and.com",
+            ["apikey"] = "Mouse",
+          }
+        })
+        assert.response(res).has.status(401)
+      end)
+
+      it("fails 401, with only the second credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "logical-and.com",
+            ["Authorization"] = paseto_token,
+          }
+        })
+        assert.response(res).has.status(401)
+      end)
+
+      it("fails 401, with no credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "logical-and.com",
+          }
+        })
+        assert.response(res).has.status(401)
+      end)
+
+    end)
+
+    describe("multiple auth with anonymous, logical OR", function()
+
+      it("passes with all credentials provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"]          = "logical-or.com",
+            ["apikey"]        = "Mouse",
+            ["Authorization"] = paseto_token,
+          }
+        })
+        assert.response(res).has.status(200)
+        assert.request(res).has.no.header("x-anonymous-consumer")
+        local id = assert.request(res).has.header("x-consumer-id")
+        assert.not_equal(id, anonymous.id)
+        assert(id == user1.id or id == user2.id)
+      end)
+
+      it("passes with only the first credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"]   = "logical-or.com",
+            ["apikey"] = "Mouse",
+          }
+        })
+        assert.response(res).has.status(200)
+        assert.request(res).has.no.header("x-anonymous-consumer")
+        local id = assert.request(res).has.header("x-consumer-id")
+        assert.not_equal(id, anonymous.id)
+        assert.equal(user1.id, id)
+      end)
+
+      it("passes with only the second credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"]          = "logical-or.com",
+            ["Authorization"] = paseto_token,
+          }
+        })
+        assert.response(res).has.status(200)
+        assert.request(res).has.no.header("x-anonymous-consumer")
+        local id = assert.request(res).has.header("x-consumer-id")
+        assert.not_equal(id, anonymous.id)
+        assert.equal(user2.id, id)
+      end)
+
+      it("passes with no credential provided", function()
+        local res = assert(client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "logical-or.com",
+          }
+        })
+        assert.response(res).has.status(200)
+        assert.request(res).has.header("x-anonymous-consumer")
+        local id = assert.request(res).has.header("x-consumer-id")
+        assert.equal(id, anonymous.id)
+      end)
+
+    end)
+
+  end)
 end
