@@ -79,7 +79,7 @@ local function set_consumer(consumer, paseto_key, token)
   ngx.ctx.authenticated_consumer = consumer
   if paseto_key then
     ngx.ctx.authenticated_credential = paseto_key
-    ngx.ctx.authenticated_jwt_token = token
+    ngx.ctx.authenticated_paseto_token = token
     ngx_set_header(constants.HEADERS.ANONYMOUS, nil) -- in case of auth plugins concatenation
   else
     ngx_set_header(constants.HEADERS.ANONYMOUS, true)

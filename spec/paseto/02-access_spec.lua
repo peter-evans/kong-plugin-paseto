@@ -50,6 +50,12 @@ for _, strategy in helpers.each_strategy() do
       })
 
       plugins:insert({
+        name     = "ctx-checker",
+        route_id = routes[1].id,
+        config   = { ctx_field = "authenticated_paseto_token" },
+      })
+
+      plugins:insert({
         name     = "paseto",
         route_id = routes[2].id,
         config   = {
@@ -78,10 +84,16 @@ for _, strategy in helpers.each_strategy() do
         config   = { cookie_names = { "choco", "berry" } },
       })
 
+      plugins:insert({
+        name     = "paseto",
+        route_id = routes[5].id,
+        config   = { uri_param_names = { "token", "mypaseto" } },
+      })
+
       assert(helpers.start_kong {
         database = strategy,
         nginx_conf = "spec/fixtures/custom_nginx.template",
-        custom_plugins = "paseto",
+        custom_plugins = "paseto, ctx-checker",      
       })
 
       proxy_client = helpers.proxy_client()
@@ -278,6 +290,22 @@ for _, strategy in helpers.each_strategy() do
         assert.same({ message = "Token verification failed; Invalid message header" }, json_body)
       end)
 
+      it("returns 401 when the token is not found in the URL parameter 'mytoken'", function()
+        local footer_claims = { kid = "signature_verification_success" }
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request/?mytoken=" .. token,
+          headers = {
+            ["Host"] = "paseto5.com",
+          }
+        })
+        local json_body = json.decode(assert.res_status(401, res))
+        assert.same({ message = "Unauthorized" }, json_body)
+      end)
+
+
+
 
 
 
@@ -378,7 +406,33 @@ for _, strategy in helpers.each_strategy() do
         assert.is_nil(body.headers["x-anonymous-consumer"])
       end)
 
+      it("proxies the request when the token is found in URL parameters", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request/?paseto=" .. token,
+          headers = {
+            ["Host"] = "paseto1.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
 
+      it("proxies the request when the token is found in a custom URL parameter", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request/?token=" .. token,
+          headers = {
+            ["Host"] = "paseto5.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
 
 
 
@@ -393,7 +447,28 @@ for _, strategy in helpers.each_strategy() do
         assert.res_status(200, res)
       end)
 
+      it("is added to ctx.authenticated_paseto_token when authenticated", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"]          = "paseto1.com",
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal(authorization, body.headers.authorization)
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+        assert.equal(token, body.headers["ctx-checker-plugin-field"])
+      end)
+
     end)
+
+
+
 
   end)
 
