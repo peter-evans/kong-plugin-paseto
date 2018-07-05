@@ -1,6 +1,7 @@
 local helpers = require "spec.helpers"
 local json = require "cjson"
 local paseto = require "paseto.v2"
+local utils = require "kong.tools.utils"
 
 local encode_base64 = ngx.encode_base64
 
@@ -8,6 +9,7 @@ for _, strategy in helpers.each_strategy() do
   describe("Plugin: paseto (access) [#" .. strategy .. "]", function()
     local proxy_client
     local secret_key_1, secret_key_3
+    local payload_claims, footer_claims
 
     setup(function()
       local bp, _, dao = helpers.get_db_utils(strategy)
@@ -22,12 +24,25 @@ for _, strategy in helpers.each_strategy() do
 
       local consumers = bp.consumers
       local consumer1 = consumers:insert({ username = "paseto_tests_consumer_1" })
-      --local consumer2 = consumers:insert({ username = "paseto_tests_consumer_2" })
       local consumer3 = consumers:insert({ username = "paseto_tests_consumer_3" })
+      local anonymous_user = consumers:insert({ username = "nobody" })
 
       secret_key_1, _ = paseto.generate_asymmetric_secret_key()
       local _, public_key_2 = paseto.generate_asymmetric_secret_key()
       secret_key_3, _ = paseto.generate_asymmetric_secret_key()
+
+      payload_claims = {
+        iss = "paragonie.com",
+        jti = "87IFSGFgPNtQNNuw0AtuLttP",
+        aud = "some-audience.com",
+        sub = "test",
+        iat = "2018-01-01T00:00:00+00:00",
+        nbf = "2018-01-01T00:00:00+00:00",
+        exp = "2099-01-01T00:00:00+00:00",
+        data = "this is a signed message",
+        myclaim = "required value"
+      }
+      footer_claims = { kid = "signature_verification_success" }
 
       dao.paseto_keys:insert {
         consumer_id = consumer1.id,
@@ -90,6 +105,18 @@ for _, strategy in helpers.each_strategy() do
         config   = { uri_param_names = { "token", "mypaseto" } },
       })
 
+      plugins:insert({
+        name     = "paseto",
+        route_id = routes[6].id,
+        config   = { anonymous = anonymous_user.id },
+      })
+
+      plugins:insert({
+        name     = "paseto",
+        route_id = routes[7].id,
+        config   = { anonymous = utils.uuid() },
+      })
+
       assert(helpers.start_kong {
         database = strategy,
         nginx_conf = "spec/fixtures/custom_nginx.template",
@@ -103,27 +130,10 @@ for _, strategy in helpers.each_strategy() do
       if proxy_client then
         proxy_client:close()
       end
-
       helpers.stop_kong()
     end)
 
     describe("refusals", function()
-
-      local payload_claims
-
-      setup(function()
-        payload_claims = {
-          iss = "paragonie.com",
-          jti = "87IFSGFgPNtQNNuw0AtuLttP",
-          aud = "some-audience.com",
-          sub = "test",
-          iat = "2018-01-01T00:00:00+00:00",
-          nbf = "2018-01-01T00:00:00+00:00",
-          exp = "2099-01-01T00:00:00+00:00",
-          data = "this is a signed message",
-          myclaim = "required value"
-        }
-      end)
 
       it("returns 401 Unauthorized if no PASETO is found in the request", function()
         local res = assert(proxy_client:send {
@@ -304,11 +314,6 @@ for _, strategy in helpers.each_strategy() do
         assert.same({ message = "Unauthorized" }, json_body)
       end)
 
-
-
-
-
-
       it("returns Unauthorized on OPTIONS requests if run_on_preflight is true", function()
         local res = assert(proxy_client:send {
           method  = "OPTIONS",
@@ -323,24 +328,7 @@ for _, strategy in helpers.each_strategy() do
 
     end)
 
-    describe("success cases", function()
-
-      local payload_claims, footer_claims
-
-      setup(function()
-        payload_claims = {
-          iss = "paragonie.com",
-          jti = "87IFSGFgPNtQNNuw0AtuLttP",
-          aud = "some-audience.com",
-          sub = "test",
-          iat = "2018-01-01T00:00:00+00:00",
-          nbf = "2018-01-01T00:00:00+00:00",
-          exp = "2099-01-01T00:00:00+00:00",
-          data = "this is a signed message",
-          myclaim = "required value"
-        }
-        footer_claims = { kid = "signature_verification_success" }
-      end)
+    describe("successful requests", function()
 
       it("proxies the request on token verification", function()
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
@@ -434,8 +422,6 @@ for _, strategy in helpers.each_strategy() do
         assert.is_nil(body.headers["x-anonymous-consumer"])
       end)
 
-
-
       it("returns 200 on OPTIONS requests if run_on_preflight is false", function()
         local res = assert(proxy_client:send {
           method  = "OPTIONS",
@@ -447,7 +433,11 @@ for _, strategy in helpers.each_strategy() do
         assert.res_status(200, res)
       end)
 
-      it("is added to ctx.authenticated_paseto_token when authenticated", function()
+    end)
+
+    describe("ctx.authenticated_paseto_token", function()
+
+      it("is added to ngx.ctx when authenticated", function()
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
@@ -467,8 +457,49 @@ for _, strategy in helpers.each_strategy() do
 
     end)
 
+    describe("config.anonymous", function()
 
+      it("proxies the request with valid credentials and anonymous", function()
+        local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
+        local authorization = "Bearer " .. token
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Authorization"] = authorization,
+            ["Host"] = "paseto6.com"
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
+        assert.is_nil(body.headers["x-anonymous-consumer"])
+      end)
 
+      it("proxies the request with invalid credentials and anonymous", function()
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto6.com"
+          }
+        })
+        local body = json.decode(assert.res_status(200, res))
+        assert.equal("true", body.headers["x-anonymous-consumer"])
+        assert.equal("nobody", body.headers["x-consumer-username"])
+      end)
+
+      it("errors when the specified anonymous user doesn't exist", function()
+        local res = assert(proxy_client:send {
+          method  = "GET",
+          path    = "/request",
+          headers = {
+            ["Host"] = "paseto7.com"
+          }
+        })
+        assert.response(res).has.status(500)
+      end)
+
+    end)
 
   end)
 
