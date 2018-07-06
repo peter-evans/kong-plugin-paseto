@@ -1,0 +1,38 @@
+dist: trusty
+sudo: required
+
+language: c
+
+addons:
+  postgresql: "9.4"
+  
+services:
+  - cassandra
+  - docker
+
+env:
+  global:
+    - OPENSSL=1.0.2l
+    - OPENRESTY=1.13.6.1
+    - LUAROCKS=2.4.4
+    - KONG=0.13.0
+    - INSTALL_CACHE=$HOME/install-cache
+    - DOWNLOAD_CACHE=$HOME/download-cache
+    - PLUGIN_NAME=paseto
+
+before_install:
+  - source .ci/prepare_env.sh
+
+install:
+  - source .ci/install.sh
+
+script:
+  - /bin/bash .ci/run_tests.sh
+
+after_success:
+  - /bin/bash .ci/on_success.sh
+
+cache:
+  directories:
+    - $DOWNLOAD_CACHE
+    - $INSTALL_CACHE
