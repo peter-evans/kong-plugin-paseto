@@ -280,7 +280,8 @@ for _, strategy in helpers.each_strategy() do
         end)
 
         it("returns 404 on attempting to delete non-existing paseto keys", function()
-          local res = assert(admin_client:send {
+          local res
+          res = assert(admin_client:send {
             method = "DELETE",
             path = "/consumers/bob/paseto/" .. "blah",
             body = {},
@@ -290,7 +291,7 @@ for _, strategy in helpers.each_strategy() do
           })
           assert.res_status(404, res)
 
-         local res = assert(admin_client:send {
+          res = assert(admin_client:send {
             method = "DELETE",
             path = "/consumers/bob/paseto/" .. "00000000-0000-0000-0000-000000000000",
             body = {},
@@ -409,7 +410,7 @@ for _, strategy in helpers.each_strategy() do
     describe("/pasetos/:paseto_kid_or_id/consumer", function()
 
       describe("GET", function()
-        local paseto_key
+
         setup(function()
           dao:truncate_table("paseto_keys")
           paseto_key = assert(dao.paseto_keys:insert {

@@ -80,7 +80,7 @@ for _, strategy in helpers.each_strategy() do
             claim_3 = { claim = "ForAudience", value = "some-audience.com" },
             claim_4 = { claim = "Subject", value = "test" },
             claim_5 = { claim = "NotExpired", value = "true" },
-            claim_6 = { claim = "ValidAt", value = "true" },            
+            claim_6 = { claim = "ValidAt", value = "true" },
             claim_7 = { claim = "ContainsClaim", value = "data" },
             claim_8 = { claim = "myclaim", value = "required value" },
           }
@@ -164,8 +164,8 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 401 if the token footer does not contain a kid claim", function()
-        local footer_claims = { no_kid_claim = "1234" }
-        local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
+        local footer_claims_2 = { no_kid_claim = "1234" }
+        local token = paseto.sign(secret_key_1, payload_claims, footer_claims_2)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
           method  = "GET",
@@ -181,8 +181,8 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 if no key with a kid matching the claim is found", function()
-        local footer_claims = { kid = "1234" }
-        local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
+        local footer_claims_2 = { kid = "1234" }
+        local token = paseto.sign(secret_key_1, payload_claims, footer_claims_2)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
           method  = "GET",
@@ -198,8 +198,8 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 when signature verification fails", function()
-        local footer_claims = { kid = "signature_verification_fail" }
-        local token = paseto.sign(secret_key_1, payload_claims, footer_claims)
+        local footer_claims_2 = { kid = "signature_verification_fail" }
+        local token = paseto.sign(secret_key_1, payload_claims, footer_claims_2)
         local authorization = "Bearer " .. token
         local res = assert(proxy_client:send {
           method  = "GET",
@@ -215,7 +215,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 when registered claims verification fails", function()
-        local footer_claims = { kid = "signature_verification_success" }
         local invalid_payload_claims = {
           iss = "paragonie.com",
           jti = "87IFSGFgPNtQNNuw0AtuLttP",
@@ -243,7 +242,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 when custom claims verification fails", function()
-        local footer_claims = { kid = "signature_verification_success" }
         local invalid_payload_claims = {
           iss = "paragonie.com",
           jti = "87IFSGFgPNtQNNuw0AtuLttP",
@@ -271,7 +269,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 401 when the token is not found in the cookie 'banana'", function()
-        local footer_claims = { kid = "signature_verification_success" }
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local res = assert(proxy_client:send {
           method  = "GET",
@@ -286,7 +283,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 403 when the token in cookies is malformed", function()
-        local footer_claims = { kid = "signature_verification_success" }
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local res = assert(proxy_client:send {
           method  = "GET",
@@ -301,7 +297,6 @@ for _, strategy in helpers.each_strategy() do
       end)
 
       it("returns 401 when the token is not found in the URL parameter 'mytoken'", function()
-        local footer_claims = { kid = "signature_verification_success" }
         local token = paseto.sign(secret_key_3, payload_claims, footer_claims)
         local res = assert(proxy_client:send {
           method  = "GET",

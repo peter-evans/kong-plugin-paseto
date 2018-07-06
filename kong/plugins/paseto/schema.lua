@@ -2,7 +2,7 @@ local utils = require "kong.tools.utils"
 
 local function check_user(anonymous)
   if anonymous == "" or utils.is_valid_uuid(anonymous) then
-  	return true
+    return true
   end
   return false, "the anonymous user must be empty or a valid uuid"
 end
@@ -26,7 +26,8 @@ return {
     anonymous = {type = "string", default = "", func = check_user},
     run_on_preflight = {type = "boolean", default = true},
   },
-  self_check = function(schema, plugin_t, dao, is_updating)
+  -- function(schema, plugin_t, dao, is_updating)
+  self_check = function()
     -- perform any custom verification
     return true
   end

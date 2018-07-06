@@ -1,6 +1,7 @@
 # [PASETO](https://github.com/paragonie/paseto) (Platform-Agnostic Security Tokens) plugin for [Kong](https://konghq.com/)
 [![luarocks](https://img.shields.io/badge/luarocks-kong--plugin--paseto-blue.svg)](https://luarocks.org/modules/peterevans/kong-plugin-paseto)
 [![Build Status](https://travis-ci.org/peter-evans/kong-plugin-paseto.svg?branch=master)](https://travis-ci.org/peter-evans/kong-plugin-paseto)
+[![Coverage Status](https://coveralls.io/repos/github/peter-evans/kong-plugin-paseto/badge.svg?branch=master)](https://coveralls.io/github/peter-evans/kong-plugin-paseto?branch=master)
 
 Paseto (Platform-Agnostic SEcurity TOkens) is a specification and reference implementation for secure stateless tokens.
 
