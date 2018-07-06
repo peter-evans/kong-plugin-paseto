@@ -111,7 +111,7 @@ Here's a list of all the parameters which can be used in this plugin's configura
 * `ContainsClaim` which verifies that the payload contains a claim with the specified name.
 * `{custom_claim}` which verifies that the payload contains a claim with the name set in the `{claim_name}` placeholder and with an expected value.
 
-## Documentation
+## Usage
 
 In order to use the plugin, you first need to create a Consumer and associate one or more PASETO credentials (holding the public key used to verify the token) to it. The Consumer represents a developer using the final service.
 
