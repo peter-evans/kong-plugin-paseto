@@ -104,7 +104,8 @@ local function do_authentication(conf)
   end
 
   -- Extract the footer claims
-  local footer_claims, footer, err = paseto.extract_footer_claims(token)
+  local footer_claims, footer
+  footer_claims, footer, err = paseto.extract_footer_claims(token)
   if footer_claims == nil then
     return false, {status = 401, message = "Bad token; " .. err}
   end
@@ -117,7 +118,8 @@ local function do_authentication(conf)
 
   -- Retrieve the public key
   local paseto_key_cache_key = singletons.dao.paseto_keys:cache_key(kid)
-  local paseto_key, err      = singletons.cache:get(paseto_key_cache_key, nil, load_credential, kid)
+  local paseto_key
+  paseto_key, err = singletons.cache:get(paseto_key_cache_key, nil, load_credential, kid)
   if err then
     return responses.send_HTTP_INTERNAL_SERVER_ERROR(err)
   end
@@ -133,14 +135,16 @@ local function do_authentication(conf)
   end
 
   -- Verify the token signature and claims
-  local verified_claims, err = paseto.verify(public_key, token, conf.claims_to_verify, footer)
+  local verified_claims
+  verified_claims, err = paseto.verify(public_key, token, conf.claims_to_verify, footer)
   if not verified_claims then
     return false, {status = 403, message = "Token verification failed; " .. err}
   end
 
   -- Retrieve the consumer
   local consumer_cache_key = singletons.dao.consumers:cache_key(paseto_key.consumer_id)
-  local consumer, err      = singletons.cache:get(consumer_cache_key, nil, load_consumer, paseto_key.consumer_id, true)
+  local consumer
+  consumer, err = singletons.cache:get(consumer_cache_key, nil, load_consumer, paseto_key.consumer_id, true)
   if err then
     return responses.send_HTTP_INTERNAL_SERVER_ERROR(err)
   end
@@ -174,7 +178,8 @@ function plugin:access(conf)
     if conf.anonymous ~= "" then
       -- get anonymous user
       local consumer_cache_key = singletons.dao.consumers:cache_key(conf.anonymous)
-      local consumer, err      = singletons.cache:get(consumer_cache_key, nil, load_consumer, conf.anonymous, true)
+      local consumer
+      consumer, err = singletons.cache:get(consumer_cache_key, nil, load_consumer, conf.anonymous, true)
       if err then
         return responses.send_HTTP_INTERNAL_SERVER_ERROR(err)
       end

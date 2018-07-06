@@ -17,7 +17,8 @@ local SCHEMA = {
     secret_key = {type = "string"},
     public_key = {type = "string"},
   },
-  self_check = function(schema, plugin_t, dao, is_update)
+  -- function(schema, plugin_t, dao, is_update)
+  self_check = function(_, plugin_t)
     if plugin_t.public_key == nil then
       if plugin_t.secret_key == nil then
         -- If no secret key or public key is supplied a key pair is generated
@@ -48,7 +49,7 @@ local SCHEMA = {
         end
         if string.sub(decoded_secret_key, 33, 64) ~= decoded_public_key then
           return false, Errors.schema "secret_key and public_key must be a matching key pair"
-        end    
+        end
       end
     end
     return true
