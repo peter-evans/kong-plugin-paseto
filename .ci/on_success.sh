@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-luacov-coveralls
+(cd $KONG_DOWNLOAD; luacov-coveralls)
