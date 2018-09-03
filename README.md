@@ -33,7 +33,7 @@ The plugin can also perform verifications on registered claims and custom claims
 
 This plugin uses the [PASETO for Lua](https://github.com/peter-evans/paseto-lua) library, which in turn depends on the [Sodium crypto library (libsodium)](https://github.com/jedisct1/libsodium).
 The following is a convenient way to install libsodium via LuaRocks.
-I don't necessarily recommend this for production use. Please see [libsodium's documentation](https://download.libsodium.org/doc/installation/) for full installation instructions.
+Alternatively, see [libsodium's documentation](https://download.libsodium.org/doc/installation/) for full installation instructions.
 ```
 luarocks install libsodium
 ```
