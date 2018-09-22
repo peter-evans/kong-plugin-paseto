@@ -67,7 +67,7 @@ for _, strategy in helpers.each_strategy() do
       plugins:insert({
         name     = "ctx-checker",
         route_id = routes[1].id,
-        config   = { ctx_field = "authenticated_paseto_token" },
+        config   = { ctx_check_field = "authenticated_paseto_token" },
       })
 
       plugins:insert({
@@ -118,9 +118,12 @@ for _, strategy in helpers.each_strategy() do
       })
 
       assert(helpers.start_kong {
-        database = strategy,
-        nginx_conf = "spec/fixtures/custom_nginx.template",
-        custom_plugins = "paseto, ctx-checker",
+        database          = strategy,
+        plugins           = "bundled, paseto, ctx-checker",
+        real_ip_header    = "X-Forwarded-For",
+        real_ip_recursive = "on",
+        trusted_ips       = "0.0.0.0/0, ::/0",
+        nginx_conf        = "spec/fixtures/custom_nginx.template",
       })
 
       proxy_client = helpers.proxy_client()
@@ -443,11 +446,9 @@ for _, strategy in helpers.each_strategy() do
             ["Host"]          = "paseto1.com",
           }
         })
-        local body = json.decode(assert.res_status(200, res))
-        assert.equal(authorization, body.headers.authorization)
-        assert.equal("paseto_tests_consumer_3", body.headers["x-consumer-username"])
-        assert.is_nil(body.headers["x-anonymous-consumer"])
-        assert.equal(token, body.headers["ctx-checker-plugin-field"])
+        assert.res_status(200, res)
+        local header = assert.header("ctx-checker-authenticated-paseto-token", res)
+        assert.equal(token, header)
       end)
 
     end)

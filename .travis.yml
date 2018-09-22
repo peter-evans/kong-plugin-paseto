@@ -4,7 +4,7 @@ sudo: required
 language: c
 
 addons:
-  postgresql: "9.4"
+  postgresql: "9.5"
   
 services:
   - cassandra
@@ -13,9 +13,9 @@ services:
 env:
   global:
     - OPENSSL=1.0.2l
-    - OPENRESTY=1.13.6.1
+    - OPENRESTY=1.13.6.2
     - LUAROCKS=2.4.4
-    - KONG=0.13.0
+    - KONG=0.14.1
     - INSTALL_CACHE=$HOME/install-cache
     - DOWNLOAD_CACHE=$HOME/download-cache
     - PLUGIN_NAME=paseto
