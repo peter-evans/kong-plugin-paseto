@@ -12,7 +12,7 @@ services:
 
 env:
   global:
-    - OPENSSL=1.0.2l
+    - OPENSSL=1.1.1a
     - OPENRESTY=1.13.6.2
     - LUAROCKS=2.4.4
     - KONG=1.0.0

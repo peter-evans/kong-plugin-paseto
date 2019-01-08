@@ -16,6 +16,11 @@ fi
 if [ ! "$(ls -A $OPENRESTY_DOWNLOAD)" ]; then
   pushd $DOWNLOAD_CACHE
     curl -s -S -L https://openresty.org/download/openresty-$OPENRESTY.tar.gz | tar xz
+    # OpenResty Patches for Kong
+    curl -s -S -L https://github.com/Kong/openresty-patches/archive/master.tar.gz | tar xz
+    pushd openresty-$OPENRESTY/bundle/
+      for i in ../../openresty-patches-master/patches/$OPENRESTY/*.patch; do patch -p1 < $i; done
+    popd
   popd
 fi
 
