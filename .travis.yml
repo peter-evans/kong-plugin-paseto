@@ -15,7 +15,7 @@ env:
     - OPENSSL=1.0.2l
     - OPENRESTY=1.13.6.2
     - LUAROCKS=2.4.4
-    - KONG=1.0.0rc2
+    - KONG=1.0.0
     - INSTALL_CACHE=$HOME/install-cache
     - DOWNLOAD_CACHE=$HOME/download-cache
     - PLUGIN_NAME=paseto
